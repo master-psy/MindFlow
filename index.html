@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindFlow | 随感与灵感记录</title>
+    <!-- 引入 Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Noto+Serif+SC:wght@300;400;700&display=swap" rel="stylesheet">
+    <!-- 引入 Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 FontAwesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- 配置 Tailwind 主题色 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        midnight: '#0f172a',
+                        surface: '#1e293b',
+                        accent: '#38bdf8',
+                        textMain: '#e2e8f0',
+                        textMuted: '#94a3b8'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['"Noto Serif SC"', 'serif'],
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
+                        'slide-in': 'slideIn 0.3s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slideIn: {
+                            '0%': { opacity: '0', transform: 'translateX(-10px)' },
+                            '100%': { opacity: '1', transform: 'translateX(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* 自定义滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+
+        /* 玻璃拟态效果 */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* 除去点击高亮 */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* 加载动画 */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top: 3px solid #38bdf8;
+            width: 24px;
+            height: 24px;
+            -webkit-animation: spin 1s linear infinite; /* Safari */
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-midnight text-textMain min-h-screen font-sans selection:bg-accent selection:text-white flex flex-col items-center">
+
+    <!-- 背景装饰光斑 -->
+    <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+        <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-pulse"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-pulse" style="animation-duration: 4s;"></div>
+    </div>
+
+    <div class="w-full max-w-6xl px-4 py-8 md:py-12 flex flex-col gap-8 h-screen md:h-auto md:min-h-screen">
+        
+        <!-- Header 区域 -->
+        <header class="flex justify-between items-center animate-fade-in-up">
+            <div class="flex flex-col">
+                <h1 class="text-3xl md:text-4xl font-serif font-bold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-cyan-200">
+                    MindFlow
+                </h1>
+                <p class="text-textMuted text-sm mt-1 font-light italic">记录稍纵即逝的思维火花。</p>
+            </div>
+            <div class="flex gap-4 items-center">
+                <!-- 状态指示灯 -->
+                <div id="statusIndicator" class="flex items-center gap-2 text-xs text-textMuted mr-2" title="正在连接云端...">
+                    <div class="loader w-4 h-4 border-2"></div>
+                </div>
+                
+                <button onclick="window.app.exportData()" title="导出数据" class="text-textMuted hover:text-accent transition-colors">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+                <button onclick="window.app.clearAll()" title="清空所有" class="text-textMuted hover:text-red-400 transition-colors">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 主体内容区域：Grid 布局 -->
+        <main class="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 flex-1 overflow-hidden">
+            
+            <!-- 左侧：输入区域 -->
+            <section class="md:col-span-4 lg:col-span-4 flex flex-col gap-4 animate-fade-in-up" style="animation-delay: 0.1s;">
+                <div class="glass-panel rounded-2xl p-6 shadow-xl shadow-black/20 md:sticky md:top-6">
+                    <label for="thoughtInput" class="block text-sm font-medium text-accent mb-2 uppercase tracking-wider">
+                        <i class="fa-regular fa-pen-to-square mr-2"></i>New Thought
+                    </label>
+                    <textarea 
+                        id="thoughtInput" 
+                        rows="6" 
+                        placeholder="此刻，你在想什么？..." 
+                        class="w-full bg-slate-800/50 text-gray-100 rounded-xl border border-slate-700 p-4 focus:ring-2 focus:ring-accent focus:border-transparent outline-none resize-none transition-all placeholder-slate-500 font-serif leading-relaxed text-lg"
+                    ></textarea>
+                    
+                    <div class="flex justify-between items-center mt-4">
+                        <span id="charCount" class="text-xs text-slate-500">0 字</span>
+                        <button 
+                            onclick="window.app.addThought()" 
+                            class="group relative inline-flex items-center justify-center px-6 py-2.5 text-sm font-bold text-white transition-all duration-200 bg-accent rounded-lg hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent focus:ring-offset-slate-900 overflow-hidden"
+                        >
+                            <span class="relative z-10 flex items-center gap-2">
+                                记录 <i class="fa-solid fa-paper-plane text-xs transition-transform group-hover:translate-x-1 group-hover:-translate-y-1"></i>
+                            </span>
+                            <div class="absolute inset-0 h-full w-full bg-gradient-to-r from-cyan-400 to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 统计卡片 -->
+                <div class="hidden md:block glass-panel rounded-2xl p-6 mt-4">
+                    <h3 class="text-textMuted text-xs uppercase tracking-widest mb-4">Statistics</h3>
+                    <div class="flex justify-between items-center">
+                        <div class="text-center">
+                            <span id="totalNotes" class="block text-2xl font-bold text-white">0</span>
+                            <span class="text-xs text-slate-500">篇随笔</span>
+                        </div>
+                        <div class="h-8 w-[1px] bg-slate-700"></div>
+                        <div class="text-center">
+                            <span id="totalWords" class="block text-2xl font-bold text-white">0</span>
+                            <span class="text-xs text-slate-500">总字数</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 右侧：列表区域 -->
+            <section class="md:col-span-8 lg:col-span-8 flex flex-col h-full overflow-hidden animate-fade-in-up" style="animation-delay: 0.2s;">
+                <div class="flex items-center justify-between mb-4 px-2">
+                    <h2 class="text-lg font-semibold text-textMain flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-accent"></i> Timeline
+                    </h2>
+                    <div id="syncStatusText" class="text-xs text-emerald-400 bg-emerald-900/20 px-3 py-1 rounded-full border border-emerald-800/50 hidden">
+                        <i class="fa-solid fa-cloud"></i> 已同步至云端
+                    </div>
+                </div>
+
+                <!-- 列表容器 -->
+                <div id="notesContainer" class="flex-1 overflow-y-auto pr-2 pb-20 space-y-6 md:pb-0">
+                    <!-- 动态生成的内容将放在这里 -->
+                    
+                    <!-- 空状态占位 -->
+                    <div id="emptyState" class="hidden flex flex-col items-center justify-center h-64 text-slate-600 opacity-60">
+                        <i class="fa-brands fa-envira text-5xl mb-4"></i>
+                        <p class="font-serif italic text-lg">暂无记录，种下第一颗思想的种子吧。</p>
+                    </div>
+                    
+                    <!-- 初始加载中状态 -->
+                    <div id="initialLoader" class="flex flex-col items-center justify-center h-64 text-slate-500">
+                        <div class="loader w-8 h-8 border-4 mb-4"></div>
+                        <p>正在同步思绪...</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 底部 (仅移动端) 统计 -->
+    <div class="md:hidden fixed bottom-0 left-0 w-full glass-panel border-t border-slate-700 p-3 flex justify-around items-center text-xs text-slate-400 z-50">
+        <span><b id="mobileTotalNotes" class="text-white">0</b> 篇随笔</span>
+        <span><b id="mobileTotalWords" class="text-white">0</b> 总字数</span>
+    </div>
+
+    <!-- Toast 通知容器 -->
+    <div id="toastContainer" class="fixed top-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Firebase SDK (ES Modules) -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+        // 初始化 Firebase
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const appInstance = initializeApp(firebaseConfig);
+        const auth = getAuth(appInstance);
+        const db = getFirestore(appInstance);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        /**
+         * MindFlow Application Logic
+         */
+        class MindFlowApp {
+            constructor() {
+                this.data = [];
+                this.userId = null;
+                this.user = null;
+                this.unsubscribe = null;
+                
+                // DOM 元素绑定
+                this.input = document.getElementById('thoughtInput');
+                this.container = document.getElementById('notesContainer');
+                this.emptyState = document.getElementById('emptyState');
+                this.initialLoader = document.getElementById('initialLoader');
+                this.charCount = document.getElementById('charCount');
+                this.statusIndicator = document.getElementById('statusIndicator');
+                this.syncStatusText = document.getElementById('syncStatusText');
+                
+                this.stats = {
+                    notes: document.getElementById('totalNotes'),
+                    words: document.getElementById('totalWords'),
+                    mobileNotes: document.getElementById('mobileTotalNotes'),
+                    mobileWords: document.getElementById('mobileTotalWords')
+                };
+
+                this.init();
+            }
+
+            async init() {
+                // 绑定输入事件
+                this.input.addEventListener('input', () => this.updateCharCount());
+                this.input.addEventListener('keydown', (e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                        this.addThought();
+                    }
+                });
+
+                // 处理认证
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Auth Error:", error);
+                    this.showToast("云端连接失败，请刷新重试", "error");
+                }
+
+                // 监听认证状态并启动数据监听
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        this.user = user;
+                        this.userId = user.uid;
+                        this.setStatus('online');
+                        this.setupRealtimeListener();
+                    } else {
+                        this.setStatus('offline');
+                    }
+                });
+            }
+
+            setStatus(status) {
+                if (status === 'online') {
+                    this.statusIndicator.innerHTML = '<span class="text-emerald-400"><i class="fa-solid fa-circle text-[8px]"></i> 在线</span>';
+                    this.syncStatusText.classList.remove('hidden');
+                } else {
+                    this.statusIndicator.innerHTML = '<span class="text-red-400"><i class="fa-solid fa-circle-exclamation"></i> 离线</span>';
+                    this.syncStatusText.classList.add('hidden');
+                }
+            }
+
+            setupRealtimeListener() {
+                if (!this.userId) return;
+
+                // 路径: artifacts/{appId}/users/{userId}/thoughts
+                const thoughtsCollection = collection(db, 'artifacts', appId, 'users', this.userId, 'thoughts');
+
+                // 使用 onSnapshot 监听实时变化
+                this.unsubscribe = onSnapshot(thoughtsCollection, (snapshot) => {
+                    // Rule: 不要在 Query 中使用复杂 orderBy，获取后在内存中排序
+                    const loadedData = [];
+                    snapshot.forEach(doc => {
+                        loadedData.push({ id: doc.id, ...doc.data() });
+                    });
+
+                    // 内存中按时间倒序排列 (最新的在前)
+                    loadedData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    
+                    this.data = loadedData;
+                    this.initialLoader.classList.add('hidden');
+                    this.render();
+                    this.updateStats();
+                }, (error) => {
+                    console.error("Data Fetch Error:", error);
+                    this.showToast("无法获取数据", "error");
+                });
+            }
+
+            async addThought() {
+                if (!this.user) {
+                    this.showToast('未连接到云端', 'error');
+                    return;
+                }
+
+                const content = this.input.value.trim();
+                if (!content) {
+                    this.showToast('写点什么再记录吧~', 'warning');
+                    this.input.focus();
+                    return;
+                }
+
+                try {
+                    // UI 立即反馈 (Optimistic UI 可选，这里用简单的加载状态)
+                    const btn = document.querySelector('button[onclick="window.app.addThought()"]');
+                    const originalBtnContent = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                    btn.disabled = true;
+
+                    const newThought = {
+                        content: content,
+                        timestamp: new Date().toISOString(),
+                        type: 'text'
+                    };
+
+                    const thoughtsCollection = collection(db, 'artifacts', appId, 'users', this.userId, 'thoughts');
+                    await addDoc(thoughtsCollection, newThought);
+
+                    this.input.value = '';
+                    this.updateCharCount();
+                    this.showToast('灵感已同步到云端', 'success');
+
+                    // 恢复按钮
+                    btn.innerHTML = originalBtnContent;
+                    btn.disabled = false;
+                } catch (e) {
+                    console.error("Add Error:", e);
+                    this.showToast("保存失败: " + e.message, "error");
+                    btn.innerHTML = originalBtnContent;
+                    btn.disabled = false;
+                }
+            }
+
+            async deleteThought(id) {
+                if(!confirm('确定要遗忘这条想法吗？')) return;
+                
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'users', this.userId, 'thoughts', id);
+                    
+                    // UI 预先移除动画
+                    const element = document.getElementById(`note-${id}`);
+                    if (element) {
+                        element.style.opacity = '0';
+                        element.style.transform = 'translateX(20px)';
+                    }
+
+                    await deleteDoc(docRef);
+                    // 不需要手动重新 render，onSnapshot 会处理
+                } catch (e) {
+                    this.showToast("删除失败", "error");
+                    // 如果失败，恢复显示 (实际场景很难失败)
+                    const element = document.getElementById(`note-${id}`);
+                    if (element) {
+                        element.style.opacity = '1';
+                        element.style.transform = 'none';
+                    }
+                }
+            }
+
+            copyThought(id) {
+                const thought = this.data.find(t => t.id === id);
+                if (thought) {
+                    navigator.clipboard.writeText(thought.content).then(() => {
+                        this.showToast('已复制到剪贴板', 'success');
+                    }).catch(() => {
+                        this.showToast('复制失败', 'error');
+                    });
+                }
+            }
+
+            async clearAll() {
+                if (this.data.length === 0) return;
+                if (!confirm('确定要清空所有云端记录吗？此操作无法撤销。')) return;
+
+                try {
+                    // 由于 Firestore 客户端没有"删除集合"的命令，需要遍历删除
+                    // 对于小量数据（随笔）这是可行的。
+                    const deletePromises = this.data.map(item => 
+                        deleteDoc(doc(db, 'artifacts', appId, 'users', this.userId, 'thoughts', item.id))
+                    );
+                    await Promise.all(deletePromises);
+                    this.showToast('已清空云端记忆', 'info');
+                } catch (e) {
+                    console.error("Clear Error:", e);
+                    this.showToast("清空失败", "error");
+                }
+            }
+
+            exportData() {
+                if(this.data.length === 0) {
+                    this.showToast('没有数据可导出', 'warning');
+                    return;
+                }
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.data, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "mindflow_cloud_backup_" + new Date().toLocaleDateString() + ".json");
+                document.body.appendChild(downloadAnchorNode); 
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            }
+
+            updateCharCount() {
+                this.charCount.textContent = `${this.input.value.length} 字`;
+            }
+
+            updateStats() {
+                const count = this.data.length;
+                const words = this.data.reduce((acc, curr) => acc + (curr.content ? curr.content.length : 0), 0);
+                
+                this.stats.notes.textContent = count;
+                this.stats.words.textContent = words;
+                this.stats.mobileNotes.textContent = count;
+                this.stats.mobileWords.textContent = words;
+            }
+
+            formatDate(isoString) {
+                if (!isoString) return '';
+                const date = new Date(isoString);
+                const now = new Date();
+                const diff = (now - date) / 1000; 
+
+                if (diff < 60) return '刚刚';
+                if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
+                if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
+                if (diff < 604800) return `${Math.floor(diff / 86400)} 天前`;
+
+                return date.toLocaleString('zh-CN', {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+            }
+
+            escapeHtml(text) {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            render() {
+                // 保留 emptyState 和 initialLoader，清除其他
+                const children = Array.from(this.container.children);
+                children.forEach(child => {
+                    if (child.id !== 'emptyState' && child.id !== 'initialLoader') {
+                        child.remove();
+                    }
+                });
+
+                if (this.data.length === 0) {
+                    this.emptyState.classList.remove('hidden');
+                    return;
+                } else {
+                    this.emptyState.classList.add('hidden');
+                }
+
+                this.data.forEach((item, index) => {
+                    const card = document.createElement('article');
+                    card.id = `note-${item.id}`;
+                    
+                    // 简单的列表渲染，不再依赖 isNewAdd 参数判断动画，
+                    // 而是让所有初次加载的项目都有一个渐入效果，或者仅对顶部元素加动画
+                    // 这里简化为标准渲染
+                    card.className = `group relative pl-8 pb-8 border-l-2 border-slate-700 hover:border-accent transition-colors duration-300 animate-fade-in-up`;
+                    card.style.animationDelay = `${index * 0.05}s`; // 瀑布流式入场
+
+                    const dot = document.createElement('div');
+                    dot.className = `absolute left-[-9px] top-0 w-4 h-4 rounded-full border-4 border-midnight bg-slate-500 group-hover:bg-accent transition-colors duration-300`;
+                    
+                    const contentHtml = `
+                        <div class="glass-panel p-5 rounded-xl hover:bg-slate-800/80 transition-all duration-300">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="text-xs font-bold text-accent tracking-wide bg-accent/10 px-2 py-0.5 rounded">
+                                    ${this.formatDate(item.timestamp)}
+                                </span>
+                                <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-3">
+                                    <button onclick="window.app.copyThought('${item.id}')" class="text-slate-500 hover:text-white" title="复制">
+                                        <i class="fa-regular fa-copy"></i>
+                                    </button>
+                                    <button onclick="window.app.deleteThought('${item.id}')" class="text-slate-500 hover:text-red-400" title="删除">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="prose prose-invert max-w-none">
+                                <p class="whitespace-pre-wrap font-serif text-gray-200 leading-relaxed text-base">${this.escapeHtml(item.content)}</p>
+                            </div>
+                        </div>
+                    `;
+
+                    card.appendChild(dot);
+                    card.insertAdjacentHTML('beforeend', contentHtml);
+                    this.container.appendChild(card);
+                });
+            }
+
+            showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                const colors = {
+                    info: 'bg-slate-700 text-white',
+                    success: 'bg-emerald-600 text-white',
+                    warning: 'bg-amber-500 text-white',
+                    error: 'bg-red-500 text-white'
+                };
+                const icon = type === 'success' ? '<i class="fa-solid fa-check mr-2"></i>' : '<i class="fa-solid fa-info-circle mr-2"></i>';
+
+                toast.className = `${colors[type]} px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center animate-slide-in pointer-events-auto backdrop-blur-sm bg-opacity-90`;
+                toast.innerHTML = `${icon} ${message}`;
+
+                const container = document.getElementById('toastContainer');
+                container.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(-20px)';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+        }
+
+        // 挂载到全局 Window 对象以便 HTML onclick 访问
+        window.app = new MindFlowApp();
+    </script>
+</body>
+</html>
