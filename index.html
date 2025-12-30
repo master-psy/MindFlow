@@ -100,7 +100,11 @@
         }
     </style>
 </head>
-<body class="bg-midnight text-textMain min-h-screen font-sans selection:bg-accent selection:text-white flex flex-col items-center">
+<!-- 
+  修改点：移除 body 的固定高度限制，让其自然伸展
+  Desktop 模式下通过内部容器控制高度
+-->
+<body class="bg-midnight text-textMain min-h-screen font-sans selection:bg-accent selection:text-white flex flex-col items-center overflow-x-hidden md:overflow-hidden">
 
     <!-- 背景装饰光斑 -->
     <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
@@ -141,10 +145,15 @@
         </div>
     </div>
 
-    <div class="w-full max-w-6xl px-4 py-8 md:py-12 flex flex-col gap-8 h-screen md:h-auto md:min-h-screen">
+    <!-- 
+       核心布局容器修改：
+       - Mobile: h-auto (自然高度), min-h-screen
+       - Desktop: h-screen (固定一屏), overflow-hidden
+    -->
+    <div class="w-full max-w-6xl px-4 py-8 md:py-12 flex flex-col gap-8 h-auto min-h-screen md:h-screen md:overflow-hidden">
         
         <!-- Header 区域 -->
-        <header class="flex justify-between items-center animate-fade-in-up">
+        <header class="flex justify-between items-center animate-fade-in-up flex-shrink-0">
             <div class="flex flex-col">
                 <h1 class="text-3xl md:text-4xl font-serif font-bold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-cyan-200">
                     MindFlow
@@ -170,7 +179,8 @@
         </header>
 
         <!-- 主体内容区域：Grid 布局 -->
-        <main class="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 flex-1 overflow-hidden">
+        <!-- Mobile: 默认 flex 行为，内容撑开高度; Desktop: overflow-hidden 配合子元素滚动 -->
+        <main class="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 flex-1 md:overflow-hidden">
             
             <!-- 左侧：输入区域 -->
             <section class="md:col-span-4 lg:col-span-4 flex flex-col gap-4 animate-fade-in-up" style="animation-delay: 0.1s;">
@@ -199,7 +209,7 @@
                     </div>
                 </div>
 
-                <!-- 统计卡片 -->
+                <!-- 统计卡片 (Mobile 隐藏，Desktop 显示) -->
                 <div class="hidden md:block glass-panel rounded-2xl p-6 mt-4">
                     <h3 class="text-textMuted text-xs uppercase tracking-widest mb-4">Statistics</h3>
                     <div class="flex justify-between items-center">
@@ -217,8 +227,12 @@
             </section>
 
             <!-- 右侧：列表区域 -->
-            <section class="md:col-span-8 lg:col-span-8 flex flex-col h-full overflow-hidden animate-fade-in-up" style="animation-delay: 0.2s;">
-                <div class="flex items-center justify-between mb-4 px-2">
+            <!-- 
+               Mobile: h-auto (自然高度), remove overflow-y-auto to allow body scroll
+               Desktop: h-full, overflow-y-auto for split view
+            -->
+            <section class="md:col-span-8 lg:col-span-8 flex flex-col md:h-full animate-fade-in-up" style="animation-delay: 0.2s;">
+                <div class="flex items-center justify-between mb-4 px-2 flex-shrink-0">
                     <h2 class="text-lg font-semibold text-textMain flex items-center gap-2">
                         <i class="fa-solid fa-clock-rotate-left text-accent"></i> Timeline
                     </h2>
@@ -228,7 +242,8 @@
                 </div>
 
                 <!-- 列表容器 -->
-                <div id="notesContainer" class="flex-1 overflow-y-auto pr-2 pb-20 space-y-6 md:pb-0">
+                <!-- pb-24: 增加底部 padding，防止被 mobile bottom bar 遮挡 -->
+                <div id="notesContainer" class="flex-1 pr-2 pb-24 md:pb-0 space-y-6 md:overflow-y-auto">
                     <!-- 动态生成的内容将放在这里 -->
                     
                     <!-- 空状态占位 -->
@@ -275,12 +290,12 @@
             constructor() {
                 this.data = [];
                 this.userId = null; 
-                this.customUid = null; // 用户手动设置的ID
+                this.customUid = null;
                 this.app = null;
                 this.auth = null;
                 this.db = null;
                 this.unsubscribe = null;
-                this.appId = 'mindflow-v2'; // 固定 App ID 用于路径前缀
+                this.appId = 'mindflow-v2';
                 
                 // DOM 元素绑定
                 this.input = document.getElementById('thoughtInput');
@@ -304,7 +319,6 @@
             }
 
             async init() {
-                // 绑定输入事件
                 this.input.addEventListener('input', () => this.updateCharCount());
                 this.input.addEventListener('keydown', (e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -312,7 +326,6 @@
                     }
                 });
 
-                // 尝试加载保存的配置
                 await this.loadConfigAndConnect();
             }
 
@@ -332,11 +345,10 @@
                     }
                 } 
                 
-                // 如果本地没有配置，尝试使用环境变量
                 if (!config && typeof __firebase_config !== 'undefined') {
                     try {
                         config = JSON.parse(__firebase_config);
-                        this.customUid = 'env-user-' + Math.floor(Math.random() * 1000); // 默认ID
+                        this.customUid = 'env-user-' + Math.floor(Math.random() * 1000); 
                     } catch(e) {}
                 }
 
@@ -349,16 +361,10 @@
 
             async connectFirebase(config) {
                 try {
-                    // 如果已经存在 app，先删除（用于重新配置）
-                    if (getApps().length > 0) {
-                        // 简单处理：刷新页面是更安全的重置方式，但在单页应用中我们尝试直接初始化
-                        // 注意：SDK 可能会抛出 duplicate app 错误，这里假设是首次或刷新后
-                    }
-
+                    // Try to reuse existing app or initialize new one
                     try {
                         this.app = initializeApp(config);
                     } catch (e) {
-                        // 如果 app 已经存在，尝试获取它
                         if(e.code === 'app/duplicate-app') {
                             this.app = getApps()[0];
                         } else {
@@ -369,21 +375,14 @@
                     this.auth = getAuth(this.app);
                     this.db = getFirestore(this.app);
 
-                    // 匿名登录以获取访问权限
-                    // 注意：你的 Firestore 规则必须允许匿名读写，或者你需要提供有效的 Token
-                    // 如果有环境变量提供的 token，优先使用
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(this.auth, __initial_auth_token);
                     } else {
                         await signInAnonymously(this.auth);
                     }
 
-                    // 监听 Auth 状态
                     onAuthStateChanged(this.auth, (user) => {
                         if (user) {
-                            // Auth 成功，开始监听数据
-                            // 我们使用 this.customUid 作为数据存储路径的 ID，而不是 Auth 的随机 UID
-                            // 这样用户只要输入相同的 customUid 就能看到数据
                             this.setStatus('online');
                             this.setupRealtimeListener();
                         } else {
@@ -395,15 +394,12 @@
                     console.error("Connection Failed:", error);
                     this.showToast("连接失败，请检查配置", "error");
                     this.setStatus('not_configured');
-                    this.openConfigModal(); // 自动打开配置窗口
+                    this.openConfigModal();
                 }
             }
 
             setupRealtimeListener() {
-                // 使用用户设置的 Custom UID 作为路径
                 const targetUid = this.customUid || this.auth.currentUser.uid;
-                
-                // 路径: artifacts/{appId}/users/{customUid}/thoughts
                 const thoughtsCollection = collection(this.db, 'artifacts', this.appId, 'users', targetUid, 'thoughts');
 
                 if(this.unsubscribe) this.unsubscribe();
@@ -426,7 +422,6 @@
                 });
             }
 
-            // UI 状态管理
             setStatus(status) {
                 this.initialLoader.classList.add('hidden');
                 this.notConfiguredState.classList.add('hidden');
@@ -449,9 +444,7 @@
                 }
             }
 
-            // --- 配置相关 ---
             openConfigModal() {
-                // 填充当前值
                 const currentConfig = localStorage.getItem('mindflow_firebase_config');
                 const currentUid = localStorage.getItem('mindflow_custom_uid');
                 
@@ -479,24 +472,18 @@
                 }
 
                 try {
-                    // 验证 JSON 格式
                     JSON.parse(configStr);
-                    
                     localStorage.setItem('mindflow_firebase_config', configStr);
                     localStorage.setItem('mindflow_custom_uid', uidStr);
                     
                     this.closeConfigModal();
                     this.showToast("配置已保存，正在重连...", "success");
-                    
-                    // 简单的重连策略：刷新页面
                     setTimeout(() => window.location.reload(), 1000);
-                    
                 } catch(e) {
                     this.showToast("Config JSON 格式错误", "error");
                 }
             }
 
-            // --- 业务逻辑 ---
             async addThought() {
                 if (!this.db || !this.auth) {
                     this.showToast('请先配置服务器连接', 'warning');
