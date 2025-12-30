@@ -92,6 +92,12 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* 模态框背景 */
+        .modal-backdrop {
+            background-color: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(4px);
+        }
     </style>
 </head>
 <body class="bg-midnight text-textMain min-h-screen font-sans selection:bg-accent selection:text-white flex flex-col items-center">
@@ -100,6 +106,39 @@
     <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-pulse"></div>
         <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-pulse" style="animation-duration: 4s;"></div>
+    </div>
+
+    <!-- 配置模态框 (默认隐藏) -->
+    <div id="configModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center modal-backdrop px-4">
+        <div class="glass-panel w-full max-w-lg p-6 rounded-2xl shadow-2xl animate-fade-in-up border border-slate-600">
+            <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-gear text-accent"></i> 服务器配置
+            </h2>
+            <p class="text-sm text-slate-400 mb-4">
+                请配置您的 Firebase 项目信息。数据将存储在您指定的数据库中。
+            </p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 uppercase mb-1">唯一身份 ID (UID)</label>
+                    <input type="text" id="customUidInput" placeholder="例如: my-secret-notebook-001" 
+                           class="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-accent outline-none">
+                    <p class="text-xs text-slate-500 mt-1">用于区分您的数据，请勿泄露。</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Firebase Config (JSON)</label>
+                    <textarea id="firebaseConfigInput" rows="6" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "..." }'
+                              class="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white font-mono text-xs focus:ring-2 focus:ring-accent outline-none"></textarea>
+                    <p class="text-xs text-slate-500 mt-1">从 Firebase 控制台复制 SDK 配置对象。</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="window.app.closeConfigModal()" class="px-4 py-2 text-slate-300 hover:text-white transition-colors">取消</button>
+                <button onclick="window.app.saveConfig()" class="px-6 py-2 bg-accent text-white font-bold rounded-lg hover:bg-sky-500 transition-colors">保存并连接</button>
+            </div>
+        </div>
     </div>
 
     <div class="w-full max-w-6xl px-4 py-8 md:py-12 flex flex-col gap-8 h-screen md:h-auto md:min-h-screen">
@@ -112,16 +151,19 @@
                 </h1>
                 <p class="text-textMuted text-sm mt-1 font-light italic">记录稍纵即逝的思维火花。</p>
             </div>
-            <div class="flex gap-4 items-center">
+            <div class="flex gap-3 items-center">
                 <!-- 状态指示灯 -->
                 <div id="statusIndicator" class="flex items-center gap-2 text-xs text-textMuted mr-2" title="正在连接云端...">
                     <div class="loader w-4 h-4 border-2"></div>
                 </div>
                 
-                <button onclick="window.app.exportData()" title="导出数据" class="text-textMuted hover:text-accent transition-colors">
+                <button onclick="window.app.openConfigModal()" title="设置" class="text-textMuted hover:text-white transition-colors p-2">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+                <button onclick="window.app.exportData()" title="导出数据" class="text-textMuted hover:text-accent transition-colors p-2">
                     <i class="fa-solid fa-download"></i>
                 </button>
-                <button onclick="window.app.clearAll()" title="清空所有" class="text-textMuted hover:text-red-400 transition-colors">
+                <button onclick="window.app.clearAll()" title="清空所有" class="text-textMuted hover:text-red-400 transition-colors p-2">
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
             </div>
@@ -181,7 +223,7 @@
                         <i class="fa-solid fa-clock-rotate-left text-accent"></i> Timeline
                     </h2>
                     <div id="syncStatusText" class="text-xs text-emerald-400 bg-emerald-900/20 px-3 py-1 rounded-full border border-emerald-800/50 hidden">
-                        <i class="fa-solid fa-cloud"></i> 已同步至云端
+                        <i class="fa-solid fa-cloud"></i> 已同步
                     </div>
                 </div>
 
@@ -196,9 +238,18 @@
                     </div>
                     
                     <!-- 初始加载中状态 -->
-                    <div id="initialLoader" class="flex flex-col items-center justify-center h-64 text-slate-500">
+                    <div id="initialLoader" class="flex flex-col items-center justify-center h-64 text-slate-500 hidden">
                         <div class="loader w-8 h-8 border-4 mb-4"></div>
-                        <p>正在同步思绪...</p>
+                        <p id="loaderText">正在连接...</p>
+                    </div>
+
+                    <!-- 未配置状态 -->
+                    <div id="notConfiguredState" class="flex flex-col items-center justify-center h-64 text-slate-500">
+                        <i class="fa-solid fa-server text-4xl mb-4 text-slate-700"></i>
+                        <p class="mb-4">未配置数据库连接</p>
+                        <button onclick="window.app.openConfigModal()" class="px-4 py-2 bg-slate-700 hover:bg-accent text-white text-sm rounded transition-colors">
+                            立即配置
+                        </button>
                     </div>
                 </div>
             </section>
@@ -216,35 +267,31 @@
 
     <!-- Firebase SDK (ES Modules) -->
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+        import { initializeApp, getApps, deleteApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        // 初始化 Firebase
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appInstance = initializeApp(firebaseConfig);
-        const auth = getAuth(appInstance);
-        const db = getFirestore(appInstance);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-        /**
-         * MindFlow Application Logic
-         */
         class MindFlowApp {
             constructor() {
                 this.data = [];
-                this.userId = null;
-                this.user = null;
+                this.userId = null; 
+                this.customUid = null; // 用户手动设置的ID
+                this.app = null;
+                this.auth = null;
+                this.db = null;
                 this.unsubscribe = null;
+                this.appId = 'mindflow-v2'; // 固定 App ID 用于路径前缀
                 
                 // DOM 元素绑定
                 this.input = document.getElementById('thoughtInput');
                 this.container = document.getElementById('notesContainer');
                 this.emptyState = document.getElementById('emptyState');
+                this.notConfiguredState = document.getElementById('notConfiguredState');
                 this.initialLoader = document.getElementById('initialLoader');
                 this.charCount = document.getElementById('charCount');
                 this.statusIndicator = document.getElementById('statusIndicator');
                 this.syncStatusText = document.getElementById('syncStatusText');
+                this.configModal = document.getElementById('configModal');
                 
                 this.stats = {
                     notes: document.getElementById('totalNotes'),
@@ -265,179 +312,266 @@
                     }
                 });
 
-                // 处理认证
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Auth Error:", error);
-                    this.showToast("云端连接失败，请刷新重试", "error");
-                }
-
-                // 监听认证状态并启动数据监听
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        this.user = user;
-                        this.userId = user.uid;
-                        this.setStatus('online');
-                        this.setupRealtimeListener();
-                    } else {
-                        this.setStatus('offline');
-                    }
-                });
+                // 尝试加载保存的配置
+                await this.loadConfigAndConnect();
             }
 
-            setStatus(status) {
-                if (status === 'online') {
-                    this.statusIndicator.innerHTML = '<span class="text-emerald-400"><i class="fa-solid fa-circle text-[8px]"></i> 在线</span>';
-                    this.syncStatusText.classList.remove('hidden');
+            async loadConfigAndConnect() {
+                this.setStatus('loading');
+                const savedConfig = localStorage.getItem('mindflow_firebase_config');
+                const savedUid = localStorage.getItem('mindflow_custom_uid');
+
+                let config = null;
+
+                if (savedConfig) {
+                    try {
+                        config = JSON.parse(savedConfig);
+                        this.customUid = savedUid || 'default-user';
+                    } catch (e) {
+                        console.error("Invalid saved config");
+                    }
+                } 
+                
+                // 如果本地没有配置，尝试使用环境变量
+                if (!config && typeof __firebase_config !== 'undefined') {
+                    try {
+                        config = JSON.parse(__firebase_config);
+                        this.customUid = 'env-user-' + Math.floor(Math.random() * 1000); // 默认ID
+                    } catch(e) {}
+                }
+
+                if (config) {
+                    this.connectFirebase(config);
                 } else {
-                    this.statusIndicator.innerHTML = '<span class="text-red-400"><i class="fa-solid fa-circle-exclamation"></i> 离线</span>';
-                    this.syncStatusText.classList.add('hidden');
+                    this.setStatus('not_configured');
+                }
+            }
+
+            async connectFirebase(config) {
+                try {
+                    // 如果已经存在 app，先删除（用于重新配置）
+                    if (getApps().length > 0) {
+                        // 简单处理：刷新页面是更安全的重置方式，但在单页应用中我们尝试直接初始化
+                        // 注意：SDK 可能会抛出 duplicate app 错误，这里假设是首次或刷新后
+                    }
+
+                    try {
+                        this.app = initializeApp(config);
+                    } catch (e) {
+                        // 如果 app 已经存在，尝试获取它
+                        if(e.code === 'app/duplicate-app') {
+                            this.app = getApps()[0];
+                        } else {
+                            throw e;
+                        }
+                    }
+
+                    this.auth = getAuth(this.app);
+                    this.db = getFirestore(this.app);
+
+                    // 匿名登录以获取访问权限
+                    // 注意：你的 Firestore 规则必须允许匿名读写，或者你需要提供有效的 Token
+                    // 如果有环境变量提供的 token，优先使用
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(this.auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(this.auth);
+                    }
+
+                    // 监听 Auth 状态
+                    onAuthStateChanged(this.auth, (user) => {
+                        if (user) {
+                            // Auth 成功，开始监听数据
+                            // 我们使用 this.customUid 作为数据存储路径的 ID，而不是 Auth 的随机 UID
+                            // 这样用户只要输入相同的 customUid 就能看到数据
+                            this.setStatus('online');
+                            this.setupRealtimeListener();
+                        } else {
+                            this.setStatus('offline');
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("Connection Failed:", error);
+                    this.showToast("连接失败，请检查配置", "error");
+                    this.setStatus('not_configured');
+                    this.openConfigModal(); // 自动打开配置窗口
                 }
             }
 
             setupRealtimeListener() {
-                if (!this.userId) return;
+                // 使用用户设置的 Custom UID 作为路径
+                const targetUid = this.customUid || this.auth.currentUser.uid;
+                
+                // 路径: artifacts/{appId}/users/{customUid}/thoughts
+                const thoughtsCollection = collection(this.db, 'artifacts', this.appId, 'users', targetUid, 'thoughts');
 
-                // 路径: artifacts/{appId}/users/{userId}/thoughts
-                const thoughtsCollection = collection(db, 'artifacts', appId, 'users', this.userId, 'thoughts');
+                if(this.unsubscribe) this.unsubscribe();
 
-                // 使用 onSnapshot 监听实时变化
                 this.unsubscribe = onSnapshot(thoughtsCollection, (snapshot) => {
-                    // Rule: 不要在 Query 中使用复杂 orderBy，获取后在内存中排序
                     const loadedData = [];
                     snapshot.forEach(doc => {
                         loadedData.push({ id: doc.id, ...doc.data() });
                     });
 
-                    // 内存中按时间倒序排列 (最新的在前)
                     loadedData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                    
                     this.data = loadedData;
-                    this.initialLoader.classList.add('hidden');
+                    
                     this.render();
                     this.updateStats();
                 }, (error) => {
-                    console.error("Data Fetch Error:", error);
-                    this.showToast("无法获取数据", "error");
+                    console.error("Snapshot Error:", error);
+                    this.showToast("同步断开: " + error.code, "error");
+                    this.setStatus('offline');
                 });
             }
 
-            async addThought() {
-                if (!this.user) {
-                    this.showToast('未连接到云端', 'error');
-                    return;
-                }
+            // UI 状态管理
+            setStatus(status) {
+                this.initialLoader.classList.add('hidden');
+                this.notConfiguredState.classList.add('hidden');
+                this.emptyState.classList.add('hidden');
+                this.syncStatusText.classList.add('hidden');
 
-                const content = this.input.value.trim();
-                if (!content) {
-                    this.showToast('写点什么再记录吧~', 'warning');
-                    this.input.focus();
+                if (status === 'loading') {
+                    this.initialLoader.classList.remove('hidden');
+                    this.statusIndicator.innerHTML = '<div class="loader w-4 h-4 border-2"></div>';
+                } else if (status === 'online') {
+                    this.statusIndicator.innerHTML = '<span class="text-emerald-400"><i class="fa-solid fa-circle text-[8px]"></i> 在线</span>';
+                    this.syncStatusText.classList.remove('hidden');
+                    this.syncStatusText.innerHTML = `<i class="fa-solid fa-cloud"></i> ID: ${this.customUid}`;
+                    if(this.data.length === 0) this.emptyState.classList.remove('hidden');
+                } else if (status === 'offline') {
+                    this.statusIndicator.innerHTML = '<span class="text-red-400"><i class="fa-solid fa-circle-exclamation"></i> 离线</span>';
+                } else if (status === 'not_configured') {
+                    this.notConfiguredState.classList.remove('hidden');
+                    this.statusIndicator.innerHTML = '<span class="text-slate-500"><i class="fa-solid fa-ban"></i> 未配置</span>';
+                }
+            }
+
+            // --- 配置相关 ---
+            openConfigModal() {
+                // 填充当前值
+                const currentConfig = localStorage.getItem('mindflow_firebase_config');
+                const currentUid = localStorage.getItem('mindflow_custom_uid');
+                
+                if(currentConfig) {
+                    document.getElementById('firebaseConfigInput').value = currentConfig;
+                }
+                if(currentUid) {
+                    document.getElementById('customUidInput').value = currentUid;
+                }
+                
+                this.configModal.classList.remove('hidden');
+            }
+
+            closeConfigModal() {
+                this.configModal.classList.add('hidden');
+            }
+
+            saveConfig() {
+                const configStr = document.getElementById('firebaseConfigInput').value.trim();
+                const uidStr = document.getElementById('customUidInput').value.trim();
+
+                if(!configStr || !uidStr) {
+                    this.showToast("请填写完整信息", "warning");
                     return;
                 }
 
                 try {
-                    // UI 立即反馈 (Optimistic UI 可选，这里用简单的加载状态)
-                    const btn = document.querySelector('button[onclick="window.app.addThought()"]');
-                    const originalBtnContent = btn.innerHTML;
-                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                    btn.disabled = true;
+                    // 验证 JSON 格式
+                    JSON.parse(configStr);
+                    
+                    localStorage.setItem('mindflow_firebase_config', configStr);
+                    localStorage.setItem('mindflow_custom_uid', uidStr);
+                    
+                    this.closeConfigModal();
+                    this.showToast("配置已保存，正在重连...", "success");
+                    
+                    // 简单的重连策略：刷新页面
+                    setTimeout(() => window.location.reload(), 1000);
+                    
+                } catch(e) {
+                    this.showToast("Config JSON 格式错误", "error");
+                }
+            }
 
-                    const newThought = {
+            // --- 业务逻辑 ---
+            async addThought() {
+                if (!this.db || !this.auth) {
+                    this.showToast('请先配置服务器连接', 'warning');
+                    this.openConfigModal();
+                    return;
+                }
+
+                const content = this.input.value.trim();
+                if (!content) return;
+
+                const btn = document.querySelector('button[onclick="window.app.addThought()"]');
+                const originalBtnContent = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                btn.disabled = true;
+
+                try {
+                    const targetUid = this.customUid || this.auth.currentUser.uid;
+                    const thoughtsCollection = collection(this.db, 'artifacts', this.appId, 'users', targetUid, 'thoughts');
+                    
+                    await addDoc(thoughtsCollection, {
                         content: content,
                         timestamp: new Date().toISOString(),
                         type: 'text'
-                    };
-
-                    const thoughtsCollection = collection(db, 'artifacts', appId, 'users', this.userId, 'thoughts');
-                    await addDoc(thoughtsCollection, newThought);
+                    });
 
                     this.input.value = '';
                     this.updateCharCount();
-                    this.showToast('灵感已同步到云端', 'success');
-
-                    // 恢复按钮
-                    btn.innerHTML = originalBtnContent;
-                    btn.disabled = false;
+                    this.showToast('已同步', 'success');
                 } catch (e) {
-                    console.error("Add Error:", e);
-                    this.showToast("保存失败: " + e.message, "error");
+                    console.error(e);
+                    this.showToast('发送失败: ' + e.message, 'error');
+                } finally {
                     btn.innerHTML = originalBtnContent;
                     btn.disabled = false;
                 }
             }
 
             async deleteThought(id) {
-                if(!confirm('确定要遗忘这条想法吗？')) return;
-                
+                if(!confirm('确定删除?')) return;
                 try {
-                    const docRef = doc(db, 'artifacts', appId, 'users', this.userId, 'thoughts', id);
-                    
-                    // UI 预先移除动画
-                    const element = document.getElementById(`note-${id}`);
-                    if (element) {
-                        element.style.opacity = '0';
-                        element.style.transform = 'translateX(20px)';
-                    }
-
-                    await deleteDoc(docRef);
-                    // 不需要手动重新 render，onSnapshot 会处理
-                } catch (e) {
-                    this.showToast("删除失败", "error");
-                    // 如果失败，恢复显示 (实际场景很难失败)
-                    const element = document.getElementById(`note-${id}`);
-                    if (element) {
-                        element.style.opacity = '1';
-                        element.style.transform = 'none';
-                    }
+                    const targetUid = this.customUid || this.auth.currentUser.uid;
+                    await deleteDoc(doc(this.db, 'artifacts', this.appId, 'users', targetUid, 'thoughts', id));
+                } catch(e) {
+                    this.showToast('删除失败', 'error');
                 }
             }
 
             copyThought(id) {
                 const thought = this.data.find(t => t.id === id);
                 if (thought) {
-                    navigator.clipboard.writeText(thought.content).then(() => {
-                        this.showToast('已复制到剪贴板', 'success');
-                    }).catch(() => {
-                        this.showToast('复制失败', 'error');
-                    });
+                    navigator.clipboard.writeText(thought.content)
+                        .then(() => this.showToast('已复制', 'success'))
+                        .catch(() => this.showToast('复制失败', 'error'));
                 }
             }
 
             async clearAll() {
                 if (this.data.length === 0) return;
-                if (!confirm('确定要清空所有云端记录吗？此操作无法撤销。')) return;
-
-                try {
-                    // 由于 Firestore 客户端没有"删除集合"的命令，需要遍历删除
-                    // 对于小量数据（随笔）这是可行的。
-                    const deletePromises = this.data.map(item => 
-                        deleteDoc(doc(db, 'artifacts', appId, 'users', this.userId, 'thoughts', item.id))
-                    );
-                    await Promise.all(deletePromises);
-                    this.showToast('已清空云端记忆', 'info');
-                } catch (e) {
-                    console.error("Clear Error:", e);
-                    this.showToast("清空失败", "error");
-                }
+                if (!confirm('确定清空所有数据?')) return;
+                
+                const targetUid = this.customUid || this.auth.currentUser.uid;
+                const promises = this.data.map(item => 
+                    deleteDoc(doc(this.db, 'artifacts', this.appId, 'users', targetUid, 'thoughts', item.id))
+                );
+                await Promise.all(promises);
+                this.showToast('已清空', 'info');
             }
 
             exportData() {
-                if(this.data.length === 0) {
-                    this.showToast('没有数据可导出', 'warning');
-                    return;
-                }
+                if(this.data.length === 0) return;
                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.data, null, 2));
-                const downloadAnchorNode = document.createElement('a');
-                downloadAnchorNode.setAttribute("href", dataStr);
-                downloadAnchorNode.setAttribute("download", "mindflow_cloud_backup_" + new Date().toLocaleDateString() + ".json");
-                document.body.appendChild(downloadAnchorNode); 
-                downloadAnchorNode.click();
-                downloadAnchorNode.remove();
+                const a = document.createElement('a');
+                a.href = dataStr;
+                a.download = `mindflow_${this.customUid}_${new Date().toISOString().slice(0,10)}.json`;
+                a.click();
             }
 
             updateCharCount() {
@@ -447,7 +581,6 @@
             updateStats() {
                 const count = this.data.length;
                 const words = this.data.reduce((acc, curr) => acc + (curr.content ? curr.content.length : 0), 0);
-                
                 this.stats.notes.textContent = count;
                 this.stats.words.textContent = words;
                 this.stats.mobileNotes.textContent = count;
@@ -457,17 +590,11 @@
             formatDate(isoString) {
                 if (!isoString) return '';
                 const date = new Date(isoString);
-                const now = new Date();
-                const diff = (now - date) / 1000; 
-
+                const diff = (new Date() - date) / 1000;
                 if (diff < 60) return '刚刚';
                 if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
                 if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
-                if (diff < 604800) return `${Math.floor(diff / 86400)} 天前`;
-
-                return date.toLocaleString('zh-CN', {
-                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                });
+                return date.toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             }
 
             escapeHtml(text) {
@@ -478,47 +605,32 @@
             }
 
             render() {
-                // 保留 emptyState 和 initialLoader，清除其他
                 const children = Array.from(this.container.children);
                 children.forEach(child => {
-                    if (child.id !== 'emptyState' && child.id !== 'initialLoader') {
-                        child.remove();
-                    }
+                    if (!['emptyState', 'initialLoader', 'notConfiguredState'].includes(child.id)) child.remove();
                 });
 
-                if (this.data.length === 0) {
+                if (this.data.length === 0 && this.statusIndicator.textContent.includes('在线')) {
                     this.emptyState.classList.remove('hidden');
-                    return;
                 } else {
                     this.emptyState.classList.add('hidden');
                 }
 
                 this.data.forEach((item, index) => {
                     const card = document.createElement('article');
-                    card.id = `note-${item.id}`;
-                    
-                    // 简单的列表渲染，不再依赖 isNewAdd 参数判断动画，
-                    // 而是让所有初次加载的项目都有一个渐入效果，或者仅对顶部元素加动画
-                    // 这里简化为标准渲染
                     card.className = `group relative pl-8 pb-8 border-l-2 border-slate-700 hover:border-accent transition-colors duration-300 animate-fade-in-up`;
-                    card.style.animationDelay = `${index * 0.05}s`; // 瀑布流式入场
-
-                    const dot = document.createElement('div');
-                    dot.className = `absolute left-[-9px] top-0 w-4 h-4 rounded-full border-4 border-midnight bg-slate-500 group-hover:bg-accent transition-colors duration-300`;
+                    card.style.animationDelay = `${index * 0.05}s`;
                     
-                    const contentHtml = `
+                    card.innerHTML = `
+                        <div class="absolute left-[-9px] top-0 w-4 h-4 rounded-full border-4 border-midnight bg-slate-500 group-hover:bg-accent transition-colors duration-300"></div>
                         <div class="glass-panel p-5 rounded-xl hover:bg-slate-800/80 transition-all duration-300">
                             <div class="flex justify-between items-start mb-3">
                                 <span class="text-xs font-bold text-accent tracking-wide bg-accent/10 px-2 py-0.5 rounded">
                                     ${this.formatDate(item.timestamp)}
                                 </span>
                                 <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-3">
-                                    <button onclick="window.app.copyThought('${item.id}')" class="text-slate-500 hover:text-white" title="复制">
-                                        <i class="fa-regular fa-copy"></i>
-                                    </button>
-                                    <button onclick="window.app.deleteThought('${item.id}')" class="text-slate-500 hover:text-red-400" title="删除">
-                                        <i class="fa-solid fa-xmark"></i>
-                                    </button>
+                                    <button onclick="window.app.copyThought('${item.id}')" class="text-slate-500 hover:text-white"><i class="fa-regular fa-copy"></i></button>
+                                    <button onclick="window.app.deleteThought('${item.id}')" class="text-slate-500 hover:text-red-400"><i class="fa-solid fa-xmark"></i></button>
                                 </div>
                             </div>
                             <div class="prose prose-invert max-w-none">
@@ -526,38 +638,20 @@
                             </div>
                         </div>
                     `;
-
-                    card.appendChild(dot);
-                    card.insertAdjacentHTML('beforeend', contentHtml);
                     this.container.appendChild(card);
                 });
             }
 
             showToast(message, type = 'info') {
                 const toast = document.createElement('div');
-                const colors = {
-                    info: 'bg-slate-700 text-white',
-                    success: 'bg-emerald-600 text-white',
-                    warning: 'bg-amber-500 text-white',
-                    error: 'bg-red-500 text-white'
-                };
-                const icon = type === 'success' ? '<i class="fa-solid fa-check mr-2"></i>' : '<i class="fa-solid fa-info-circle mr-2"></i>';
-
-                toast.className = `${colors[type]} px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center animate-slide-in pointer-events-auto backdrop-blur-sm bg-opacity-90`;
-                toast.innerHTML = `${icon} ${message}`;
-
-                const container = document.getElementById('toastContainer');
-                container.appendChild(toast);
-
-                setTimeout(() => {
-                    toast.style.opacity = '0';
-                    toast.style.transform = 'translateY(-20px)';
-                    setTimeout(() => toast.remove(), 300);
-                }, 3000);
+                const colors = { info: 'bg-slate-700', success: 'bg-emerald-600', warning: 'bg-amber-500', error: 'bg-red-500' };
+                toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center animate-slide-in backdrop-blur-sm bg-opacity-90`;
+                toast.innerHTML = `<i class="fa-solid fa-${type === 'success' ? 'check' : 'info-circle'} mr-2"></i> ${message}`;
+                document.getElementById('toastContainer').appendChild(toast);
+                setTimeout(() => { toast.remove() }, 3000);
             }
         }
 
-        // 挂载到全局 Window 对象以便 HTML onclick 访问
         window.app = new MindFlowApp();
     </script>
 </body>
